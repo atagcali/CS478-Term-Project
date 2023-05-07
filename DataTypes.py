@@ -1,5 +1,5 @@
 import math
-
+import tkinter as tk
 
 class Point:
     def __init__(self, x = 0, y = 0):
@@ -94,6 +94,122 @@ class Segment:
 
         if a1 == a2: # Point is on line
             return a1
+        
+class Vertex:
+    def __init__(self, point):
+        self.point = point
+        self.incident_edge = None
 
-s1 = Segment(Point(), Point(5,5))
-print(s1.polar_angle())
+class Edge:
+    def __init__(self, origin, destination):
+        self.origin = origin
+        self.destination = destination
+        self.left_face = None
+        self.right_face = None
+        self.prev_edge_origin = None
+        self.prev_edge_destination = None
+
+class Face:
+    def __init__(self):
+        self.incident_edge = None
+
+class DCEL:
+    def __init__(self):
+        self.vertices = []
+        self.edges = []
+        self.faces = []
+
+    def add_vertex(self, point):
+        vertex = Vertex(point)
+        self.vertices.append(vertex)
+        return vertex
+
+    def add_edge(self, origin, destination):
+        edge = Edge(origin, destination)
+        self.edges.append(edge)
+        return edge
+
+    def add_face(self):
+        face = Face()
+        self.faces.append(face)
+        return face
+
+    def set_edge_faces(self, edge, left_face, right_face):
+        edge.left_face = left_face
+        edge.right_face = right_face
+
+    def set_prev_edges(self, edge, prev_edge_origin, prev_edge_destination):
+        edge.prev_edge_origin = prev_edge_origin
+        edge.prev_edge_destination = prev_edge_destination
+
+    def set_incident_edge(self, vertex, edge):
+        vertex.incident_edge = edge
+
+    def set_incident_edge_face(self, face, edge):
+        face.incident_edge = edge
+
+    def draw(self, canvas):
+        drawn_vertices = set()
+
+        for edge in self.edges:
+            origin = edge.origin.point
+            destination = edge.destination.point
+
+            canvas.create_line(origin.x, origin.y, destination.x, destination.y)
+            self._draw_vertex(canvas, origin, edge.origin, drawn_vertices)
+            self._draw_vertex(canvas, destination, edge.destination, drawn_vertices)
+
+            edge_label_offset_x = 10
+            edge_label_offset_y = -10
+
+            edge_label_x = (origin.x + destination.x) / 2 + edge_label_offset_x
+            edge_label_y = (origin.y + destination.y) / 2 + edge_label_offset_y
+            canvas.create_text(edge_label_x, edge_label_y, text=f"E{self.edges.index(edge)}", anchor="nw")
+
+        for vertex in self.vertices:
+            if vertex not in drawn_vertices:
+                self._draw_vertex(canvas, vertex.point, vertex, drawn_vertices)
+
+    def _draw_vertex(self, canvas, point, vertex, drawn_vertices):
+        if vertex in drawn_vertices:
+            return
+
+        canvas.create_oval(point.x - 2, point.y - 2, point.x + 2, point.y + 2, fill='red')
+        vertex_label_offset = 5
+        canvas.create_text(point.x + vertex_label_offset, point.y + vertex_label_offset, text=f"V{self.vertices.index(vertex)}", anchor="nw")
+        drawn_vertices.add(vertex)
+
+class DCELApp:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("DCEL Editor")
+
+        self.canvas = tk.Canvas(self.master, width=300, height=300)
+        self.canvas.pack()
+        self.canvas.bind("<Button-1>", self.on_canvas_click)
+
+        self.dcel = DCEL()
+        v1 = self.dcel.add_vertex(Point(50, 50))
+        v2 = self.dcel.add_vertex(Point(250, 50))
+        v3 = self.dcel.add_vertex(Point(150, 250))
+
+        e1 = self.dcel.add_edge(v1, v2)
+        e2 = self.dcel.add_edge(v2, v3)
+        e3 = self.dcel.add_edge(v3, v1)
+
+        self.dcel.set_prev_edges(e1, e3, e2)
+        self.dcel.set_prev_edges(e2, e1, e3)
+        self.dcel.set_prev_edges(e3, e2, e1)
+        self.dcel.draw(self.canvas)
+
+
+    def on_canvas_click(self, event):
+        x, y = event.x, event.y
+        new_vertex = self.dcel.add_vertex(Point(x, y))
+        self.dcel.draw(self.canvas)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = DCELApp(root)
+    root.mainloop()
