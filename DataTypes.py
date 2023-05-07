@@ -63,8 +63,37 @@ class Segment:
 
     # Angle to the x-axis
     def polar_angle(self):
-        pass
+        x_axis = Segment(Point(), Point(1,0))
+        return x_axis.angle_to_segment(self)
 
-s1 = Segment(Point(), Point(5,0))
-s2 = Segment(Point(), Point(0,5))
-print(s1.angle_to_segment(s2))
+    '''
+    D > 0: Left
+    D = 0: On line
+    D < 0: Right
+    '''
+    def left_test(self, point):
+        x0 = self.start_point.x
+        x1 = self.end_point.x
+        x2 = point.x
+        y0 = self.start_point.y
+        y1 = self.end_point.y
+        y2 = point.y
+
+        return x0*y1 + x2*y0 + x1*y2 - x2*y1 - x0*y2 - x1*y0
+
+    '''
+    a>1     : Before the segment
+    a=1     : start_point
+    1<a<0   : On segment
+    a=0     : end_point
+    a<0     = After the segment
+    '''
+    def segment_test(self, point):
+        a1 = (point.x - self.end_point.x) / (self.start_point.x - self.end_point.x)
+        a2 = (point.y - self.end_point.y) / (self.start_point.y - self.end_point.y)
+
+        if a1 == a2: # Point is on line
+            return a1
+
+s1 = Segment(Point(), Point(5,5))
+print(s1.polar_angle())
