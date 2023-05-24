@@ -32,6 +32,8 @@ def is_in_triangle(p, tri):
     x3, y3 = tri[2]
 
     denom = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3)
+    if denom == 0:
+        return False
     b1 = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denom
     b2 = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denom
     b3 = 1 - b1 - b2
@@ -143,7 +145,7 @@ def triangle_ccc(tri):
 
 def draw_delaunay(triangles):
     root = tk.Tk()
-    canvas = tk.Canvas(root, width=1600, height=900)
+    canvas = tk.Canvas(root, width=1920, height=1080)
     canvas.pack()
 
     for triangle in triangles:
@@ -151,15 +153,108 @@ def draw_delaunay(triangles):
         x2, y2 = triangle[1]
         x3, y3 = triangle[2]
 
-        canvas.create_polygon(x1, y1, x2, y2, x3, y3, outline='black', fill='white')
+        canvas.create_polygon(x1, y1, x2, y2, x3, y3, outline='blue', fill='')
 
     root.mainloop()
 
 
-points = [
-    [r.randint(0,1600), r.randint(0,900)]
-    for _ in range(500)
+"""def circ_intersect(tri1, tri2):
+    cc1, cr1 = find_cc(tri1)
+    cc2, cr2 = find_cc(tri2)
+
+    dx = cc2[0] - cc1[0]
+    dy = cc2[1] - cc1[1]
+    d = m.sqrt(dx**2 + dy**2)
+
+    return d < cr1 + cr2"""
+
+
+def common_edge(tri1, tri2):
+    e1 = sorted([sorted([tri1[0], tri1[1]]), sorted([tri1[1], tri1[2]]), sorted([tri1[2], tri1[0]])])
+    e2 = sorted([sorted([tri2[0], tri2[1]]), sorted([tri2[1], tri2[2]]), sorted([tri2[2], tri2[0]])])
+
+    for a in e1:
+        for b in e2:
+            if a == b:
+                return a
+
+    return None
+
+
+def p_line(S, B):
+    width = 1920
+    height = 1080
+
+    # Compute the slope of line B
+    slope_B = (B[1][1] - B[0][1]) / (B[1][0] - B[0][0])
+
+    # Compute the slope of the perpendicular line
+    if slope_B == 0:
+        slope = float('inf')  # Vertical line
+    else:
+        slope = -1 / slope_B
+
+    # Determine the endpoint of the perpendicular line on the bounding box
+    if slope == float('inf'):
+        # Perpendicular line is vertical
+        endpoint = (S[0], height)
+    else:
+        x = width  # x-coordinate at the right side of the bounding box
+        y = S[1] + (x - S[0]) * slope  # Compute y-coordinate using slope
+        if y > height:
+            y = height
+            x = S[0] + (y - S[1]) / slope
+        endpoint = (x, y)
+
+    return S, endpoint
+
+
+def voronoi(tris):
+
+    tri_ccs = [triangle_ccc(tri) for tri in tris]
+
+    cells = []
+    lines = []
+
+    for i, tri in enumerate(tris):
+        neighbors = [j for j, o_tri in enumerate(tris) if i != j and common_edge(tri, o_tri)]
+        cells.append({"center": tri_ccs[i], "neighbors": neighbors})
+
+    for cell in cells:
+        for o_cell in cell["neighbors"]:
+            lines.append([cell["center"], cells[o_cell]["center"]])
+
+    return lines
+
+
+def draw_voronoi(triangles, lines):
+    root = tk.Tk()
+    canvas = tk.Canvas(root, width=1920, height=1080, background="white")
+    canvas.pack()
+
+    for triangle in triangles:
+        x1, y1 = triangle[0]
+        x2, y2 = triangle[1]
+        x3, y3 = triangle[2]
+
+        canvas.create_polygon(x1, y1, x2, y2, x3, y3, outline='blue', fill='')
+
+    for line in lines:
+        start_x, start_y = line[0]
+        end_x, end_y = line[1]
+
+        canvas.create_line(start_x, start_y, end_x, end_y, fill='green')
+
+    root.mainloop()
+
+
+random_points = [
+    [r.randint(50,1870), r.randint(50,980)]
+    for _ in range(10)
 ]
 
-triangulation = delaunay(points)
-draw_delaunay(triangulation)
+
+triangulation = delaunay(random_points)
+#draw_delaunay(triangulation)
+voronoi = voronoi(triangulation)
+draw_voronoi(triangulation, voronoi)
