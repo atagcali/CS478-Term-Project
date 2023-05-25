@@ -210,7 +210,6 @@ def p_line(S, B):
 
 
 def voronoi(tris):
-
     tri_ccs = [triangle_ccc(tri) for tri in tris]
 
     cells = []
@@ -224,10 +223,13 @@ def voronoi(tris):
         for o_cell in cell["neighbors"]:
             lines.append([cell["center"], cells[o_cell]["center"]])
 
+        if len(cell["neighbors"]) < 3:
+            pass # TODO: Outside triangles
+
     return lines
 
 
-def draw_voronoi(triangles, lines):
+def draw_both(triangles, lines):
     root = tk.Tk()
     canvas = tk.Canvas(root, width=1920, height=1080, background="white")
     canvas.pack()
@@ -248,6 +250,20 @@ def draw_voronoi(triangles, lines):
     root.mainloop()
 
 
+def draw_voronoi(lines):
+    root = tk.Tk()
+    canvas = tk.Canvas(root, width=1920, height=1080, background="white")
+    canvas.pack()
+
+    for line in lines:
+        start_x, start_y = line[0]
+        end_x, end_y = line[1]
+
+        canvas.create_line(start_x, start_y, end_x, end_y, fill='green')
+
+    root.mainloop()
+
+
 random_points = [
     [r.randint(50,1870), r.randint(50,980)]
     for _ in range(10)
@@ -257,4 +273,5 @@ random_points = [
 triangulation = delaunay(random_points)
 #draw_delaunay(triangulation)
 voronoi = voronoi(triangulation)
-draw_voronoi(triangulation, voronoi)
+draw_both(triangulation, voronoi)
+#draw_voronoi(voronoi)
