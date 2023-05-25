@@ -11,7 +11,13 @@ class Point:
         if not other_p:
             other_p = Point()
 
-        return ((self.x-other_p.x)**2 + (self.y-other_p.y)**2)**.5
+        return ((self.x-other_p.x)**2 + (self.y-other_p.y)**2)**0.5
+    
+    def midpoint_to(self, other_p = None):
+        if not other_p:
+            other_p = Point()
+
+        return Point((self.x + other_p.x) / 2, (self.y + other_p.y) / 2)
 
     # Projection of a point on a line that contains the segment
     def projection_on_segment(self, segment):

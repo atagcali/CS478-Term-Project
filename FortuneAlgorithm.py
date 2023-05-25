@@ -3,7 +3,7 @@ import math
 import heapq
 
 
-from DataTypes import Point 
+from DataTypes import Point, Segment 
 
 class PriorityQueue:
     def __init__(self):
@@ -30,8 +30,8 @@ class CircleQueue:
         return not self.cq
     
     def put(self, item):
-        circle_center = item.center  # Assuming center is a Point object with x and y attributes.
-        heapq.heappush(self.cq, (circle_center.x, item))  # The lower the x-coordinate, the higher the priority.
+        eventPoint = item.eventPoint  # Assuming center is a Point object with x and y attributes.
+        heapq.heappush(self.cq, (eventPoint.x, item))  # The lower the x-coordinate, the higher the priority.
 
     def pop(self):
         return heapq.heappop(self.cq)[1] if self.cq else None
@@ -49,12 +49,17 @@ class ArcNode:
         self.right = right
 
 class CircleEvent:
-    def __init__(self, center, radius, arc):
+    def __init__(self, center, radius, arc, belowArc, aboveArc):
         self.center = center
         self.radius = radius
         self.arc = arc
+        self.belowArc = belowArc
+        self.aboveArc = aboveArc
         self.x = center.x
+        self.eventPoint = Point(center.x + radius, center.y)
 
+        def __lt__(self, other):
+            return self.eventPoint.x < other.eventPoint.x
 
 class DrawingApp:
     def __init__(self, master):
@@ -75,9 +80,10 @@ class DrawingApp:
         self.pointEvent = PriorityQueue() #points
         self.circleEvent = CircleQueue() #events
         self.rootArc = None #root of bst
+        self.bstLength = 0
         self.voronoiVertices = []
-        #self.dcel = DCEL()
-        
+        self.voronoiEdges = []
+            
     def add_point(self, event):
         x, y = event.x, event.y
         print('x = ', x, ' ,  y = ', y)
@@ -89,24 +95,8 @@ class DrawingApp:
         self.lines = []
         self.canvas.delete("all")
 
-    def test(self, event):
-        for point in self.points:
-            p = Point(point[0], point[1])
-            self.pointEvent.put(p)
-        
-        while not self.pointEvent.is_empty():
-            self.process_point()
-        
-        while not self.circleEvent.is_empty():
-            event = self.circleEvent.pop()
-            print('circle x = ', event.center.x, ' , y = ', event.center.y)
-            self.voronoiVertices.append(event.center)
-        
-        # Print Voronoi vertices
-        for vertex in self.voronoiVertices:
-            x = vertex.x
-            y = vertex.y
-            self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="red")
+    # def draw_sweep_line(self, sweep_line_x):
+    #     self.canvas.create_line(sweep_line_x, 0, sweep_line_x, self.canvas.winfo_height(), fill="blue")
 
 
     def voronoi(self, event):
@@ -115,7 +105,7 @@ class DrawingApp:
             self.pointEvent.put(p)
         
         while not self.pointEvent.is_empty():
-            if not self.circleEvent.is_empty() and (self.circleEvent.top().center.x <= self.pointEvent.top().x):
+            if not self.circleEvent.is_empty() and (self.circleEvent.top().eventPoint.x <= self.pointEvent.top().x):
                 self.process_event()
             else:
                 self.process_point()
@@ -126,7 +116,15 @@ class DrawingApp:
         for vertex in self.voronoiVertices:
             x = vertex.x
             y = vertex.y
+            print('voronoi vertex x : ', x , ' y : ', y )
             self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="red")
+        
+        # for edge in self.voronoiEdges:
+        #     startx = edge.start_point.x
+        #     starty = edge.start_point.y
+        #     endx = edge.end_point.x
+        #     endy = edge.end_point.y
+        #     self.canvas.create_line(startx, starty, endx, endy)
 
     def insert(self, bstRoot, site, ordinate, inserted = 0):
         # If the tree is empty, return a new node
@@ -229,12 +227,17 @@ class DrawingApp:
 
     def find_above_arc(self, root, node):
         position, found = self.find_inorder_position(root,node)
+        if position == self.bstLength:
+            return None
         nextNode, n = self.find_node_by_inorder_position(root, position + 1)
         return nextNode
 
 
     def find_below_arc(self, root, node):
         position, found = self.find_inorder_position(root, node)
+        #print('founded at : ',position)
+        if position == 1:
+            return None
         beforeNode, n = self.find_node_by_inorder_position(root, position - 1)
         return beforeNode
 
@@ -247,7 +250,7 @@ class DrawingApp:
         # If the determinant is zero, then the points are collinear and no circle can be found.
         if abs(det) < 1.0e-6:
             return None, None
-
+        
         # Center of circle
         cx = (bc*(p2.y - p3.y) - cd*(p1.y - p2.y)) / det
         cy = ((p1.x - p2.x)*cd - (p2.x - p3.x)*bc) / det
@@ -264,51 +267,76 @@ class DrawingApp:
             return
         if (arc.site is belowArc.site) or (arc.site is aboveArc.site) or (belowArc.site is aboveArc.site):
             return
-        
+        print('below arc point is: ', belowArc.site.x, ' , ', belowArc.site.y)
+        print('above Arc point is: ', aboveArc.site.x, ' , ', aboveArc.site.y)
+
         circle_center, circle_radius = self.calculate_circle(belowArc.site, arc.site, aboveArc.site)
-        if circle_center is None:
+        if (circle_center is None) :
             return
         
-        event = CircleEvent(circle_center, circle_radius, arc)
+        event = CircleEvent(circle_center, circle_radius, arc, belowArc, aboveArc)
         self.circleEvent.put(event)
 
 
     def process_point(self):
-        print('point')
         site = self.pointEvent.pop()
+        # self.draw_sweep_line(site.x)
+        # self.master.after(2000)  # Pause for 500 milliseconds
+        # self.master.update()    # Force an update of the Tkinter display
+        print('point x = ', site.x, ' , y = ', site.y)
         if(self.rootArc is None):
             self.rootArc, bool = self.insert(self.rootArc, site, site.y)
+            self.bstLength += 1
         else:
             newArc, bool = self.insert(self.rootArc, site, site.y)
-
-            belowArc = self.find_below_arc(self.rootArc, newArc)
-            aboveArc = self.find_above_arc(self.rootArc, newArc)
-
-            
-            self.check_circle_event(newArc)
-            if belowArc is not None:
-                self.check_circle_event(belowArc)
-            if aboveArc is not None:
-                self.check_circle_event(aboveArc)
+            self.bstLength += 1
+            if self.bstLength > 2:
+                belowArc = self.find_below_arc(self.rootArc, newArc)
+                aboveArc = self.find_above_arc(self.rootArc, newArc)
+                
+                self.check_circle_event(newArc)
+                if belowArc is not None:
+                    self.check_circle_event(belowArc)
+                if aboveArc is not None:
+                    self.check_circle_event(aboveArc)
     
-    def remove_fake_vertices(self, root, center, radius):
+    def remove_fake_vertices(self, root, center, radius, gonnaDelete = []):
         if root is None:
-            return
-        self.remove_fake_vertices(root.left, center, radius)
+            return gonnaDelete
+        gonnaDelete = self.remove_fake_vertices(root.left, center, radius, gonnaDelete)
 
-        if center.dist_to_point(root.site) < (radius):
-            print('delete')
-            self.delete_arc(self.rootArc, node=root)
-        else:
-            self.voronoiVertices.append(center)
+        if round(center.dist_to_point(root.site), 3) < round(radius, 3):
+            print('uzaklık: ', center.dist_to_point(root.site), 'raidus : ', radius)
+            print("delete x = ", root.site.x, " , y = ", root.site.y, ' because of fake vertice' )
+            gonnaDelete.append(root)
         
-        self.remove_fake_vertices(root.right, center, radius)
+        gonnaDelete = self.remove_fake_vertices(root.right, center, radius, gonnaDelete)
+
+        return gonnaDelete
 
     def process_event(self):
-        print('event')
         cevent = self.circleEvent.pop()
-        self.remove_fake_vertices(self.rootArc, cevent.center, cevent.radius)
-        
+        # self.draw_sweep_line(cevent.eventPoint.x)
+        # self.master.after(2000)  # Pause for 500 milliseconds
+        # self.master.update()    # Force an update of the Tkinter display
+        print('circle')
+        gonnaDelete = []#self.remove_fake_vertices(self.rootArc, cevent.center, cevent.radius)
+        if(len(gonnaDelete) == 0):
+            self.voronoiVertices.append(cevent.center)
+            self.voronoiEdges.append(Segment(cevent.center, cevent.arc.site.midpoint_to(cevent.aboveArc.site)))
+            self.voronoiEdges.append(Segment(cevent.center, cevent.arc.site.midpoint_to(cevent.belowArc.site)))
+            self.voronoiEdges.append(Segment(cevent.center, cevent.belowArc.site.midpoint_to(cevent.aboveArc.site)))
+
+            self.delete_arc(self.rootArc, cevent.arc)
+
+            self.check_circle_event(cevent.belowArc)
+            self.check_circle_event(cevent.aboveArc)
+
+        else:
+            for arcNode in gonnaDelete:
+                self.delete_arc(self.rootArc, arcNode)
+
+
 
     
 
