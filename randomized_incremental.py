@@ -114,7 +114,7 @@ def add_point(p, tris):
             for i in range(3):
                 legalize_edge(p, new_tris[i], tris)
 
-        else: # If p in on an edge
+        else: # If p in on an edge (Visually, doesn't cause a problem
             #TODO
             pass
 
@@ -224,7 +224,7 @@ def voronoi(tris):
             lines.append([cell["center"], cells[o_cell]["center"]])
 
         if len(cell["neighbors"]) < 3:
-            pass # TODO: Outside triangles
+            pass # TODO: Triangle with less than 3 neighbors
 
     return lines
 

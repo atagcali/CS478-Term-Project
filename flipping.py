@@ -89,6 +89,7 @@ def draw_tris(tris):
 
     for p1, p2, p3 in tris[::-1]:
         canvas.create_polygon(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], outline="black", fill='#F0F0F0')
+        canvas.create_oval()
 
     root.mainloop()
 
