@@ -30,11 +30,13 @@ class CircleQueue:
         return not self.cq
     
     def put(self, item):
-        eventPoint = item.eventPoint  # Assuming center is a Point object with x and y attributes.
-        heapq.heappush(self.cq, (eventPoint.x, item))  # The lower the x-coordinate, the higher the priority.
+        eventPoint = item.eventPoint
+        self.cq.append((eventPoint.x, item))
+        self.cq.sort(key=lambda x: x[0])  # Sort the queue based on x-coordinate.
+
 
     def pop(self):
-        return heapq.heappop(self.cq)[1] if self.cq else None
+        return self.cq.pop(0)[1] if self.cq else None
     
     def top(self):
         return self.cq[0][1] if self.cq else None
@@ -83,6 +85,7 @@ class DrawingApp:
         self.bstLength = 0
         self.voronoiVertices = []
         self.voronoiEdges = []
+        self.halfEdges = []
             
     def add_point(self, event):
         x, y = event.x, event.y
@@ -111,7 +114,6 @@ class DrawingApp:
                 self.process_point()
         while not self.circleEvent.is_empty():
             self.process_event()
-        
         # Print Voronoi vertices
         for vertex in self.voronoiVertices:
             x = vertex.x
@@ -119,12 +121,12 @@ class DrawingApp:
             print('voronoi vertex x : ', x , ' y : ', y )
             self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="red")
         
-        # for edge in self.voronoiEdges:
-        #     startx = edge.start_point.x
-        #     starty = edge.start_point.y
-        #     endx = edge.end_point.x
-        #     endy = edge.end_point.y
-        #     self.canvas.create_line(startx, starty, endx, endy)
+        for edge in self.voronoiEdges:
+            startx = edge.start_point.x
+            starty = edge.start_point.y
+            endx = edge.end_point.x
+            endy = edge.end_point.y
+            self.canvas.create_line(startx, starty, endx, endy)
 
     def insert(self, bstRoot, site, ordinate, inserted = 0):
         # If the tree is empty, return a new node
@@ -300,19 +302,17 @@ class DrawingApp:
                 if aboveArc is not None:
                     self.check_circle_event(aboveArc)
     
-    def remove_fake_vertices(self, root, center, radius, gonnaDelete = []):
+    def detect_fake_vertices(self, root, center, radius, fake = []):
         if root is None:
-            return gonnaDelete
-        gonnaDelete = self.remove_fake_vertices(root.left, center, radius, gonnaDelete)
+            return fake
+        fake = self.detect_fake_vertices(root.left, center, radius, fake)
 
         if round(center.dist_to_point(root.site), 3) < round(radius, 3):
-            print('uzaklık: ', center.dist_to_point(root.site), 'raidus : ', radius)
-            print("delete x = ", root.site.x, " , y = ", root.site.y, ' because of fake vertice' )
-            gonnaDelete.append(root)
-        
-        gonnaDelete = self.remove_fake_vertices(root.right, center, radius, gonnaDelete)
-
-        return gonnaDelete
+            fake.append(root)
+        # if root.site.x < center.x + radius:
+        #     fake.append(root)
+        fake = self.detect_fake_vertices(root.right, center, radius, fake)
+        return fake
 
     def process_event(self):
         cevent = self.circleEvent.pop()
@@ -320,21 +320,24 @@ class DrawingApp:
         # self.master.after(2000)  # Pause for 500 milliseconds
         # self.master.update()    # Force an update of the Tkinter display
         print('circle')
-        gonnaDelete = []#self.remove_fake_vertices(self.rootArc, cevent.center, cevent.radius)
-        if(len(gonnaDelete) == 0):
+        fake = self.detect_fake_vertices(self.rootArc, cevent.center, cevent.radius)
+        print('fake vercite , ', fake )
+        if(len(fake) == 0):
             self.voronoiVertices.append(cevent.center)
             self.voronoiEdges.append(Segment(cevent.center, cevent.arc.site.midpoint_to(cevent.aboveArc.site)))
             self.voronoiEdges.append(Segment(cevent.center, cevent.arc.site.midpoint_to(cevent.belowArc.site)))
             self.voronoiEdges.append(Segment(cevent.center, cevent.belowArc.site.midpoint_to(cevent.aboveArc.site)))
 
             self.delete_arc(self.rootArc, cevent.arc)
+            self.bstLength = self.bstLength -1
+            self.check_circle_event(cevent.belowArc)
+            self.check_circle_event(cevent.aboveArc)
+        else:
+            self.delete_arc(self.rootArc, cevent.arc)
+            self.bstLength = self.bstLength -1
 
             self.check_circle_event(cevent.belowArc)
             self.check_circle_event(cevent.aboveArc)
-
-        else:
-            for arcNode in gonnaDelete:
-                self.delete_arc(self.rootArc, arcNode)
 
 
 
