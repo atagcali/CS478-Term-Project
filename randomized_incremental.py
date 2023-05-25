@@ -1,7 +1,7 @@
 import math as m
 import tkinter as tk
 import random as r
-from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d
+#from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d
 
 def find_supertriangle(P):
     # Find the minimum and maximum x and y coordinates in the point set
@@ -228,8 +228,16 @@ def voronoi(tris):
 
     return lines
 
+def draw_points(points,canvas, root):
+    for i, (x, y) in enumerate(points):
+        canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill='black')
+        canvas.create_text(x, y - 15, text=str(i), fill='black')
 
-def draw_both(triangles, lines):
+    root.mainloop()
+
+
+
+def draw_both(triangles, lines, points):
     root = tk.Tk()
     canvas = tk.Canvas(root, width=1920, height=1080, background="white")
     canvas.pack()
@@ -247,6 +255,7 @@ def draw_both(triangles, lines):
 
         canvas.create_line(start_x, start_y, end_x, end_y, fill='green')
 
+    draw_points(points,canvas,root)
     root.mainloop()
 
 
@@ -273,5 +282,5 @@ random_points = [
 triangulation = delaunay(random_points)
 #draw_delaunay(triangulation)
 voronoi = voronoi(triangulation)
-draw_both(triangulation, voronoi)
+draw_both(triangulation, voronoi,random_points)
 #draw_voronoi(voronoi)
