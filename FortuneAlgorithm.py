@@ -81,6 +81,7 @@ class DrawingApp:
         #Data For Voronoi Diagram
         self.pointEvent = PriorityQueue() #points
         self.circleEvent = CircleQueue() #events
+        self.seenPoints = []
         self.rootArc = None #root of bst
         self.bstLength = 0
         self.voronoiVertices = []
@@ -121,12 +122,12 @@ class DrawingApp:
             print('voronoi vertex x : ', x , ' y : ', y )
             self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="red")
         
-        for edge in self.voronoiEdges:
-            startx = edge.start_point.x
-            starty = edge.start_point.y
-            endx = edge.end_point.x
-            endy = edge.end_point.y
-            self.canvas.create_line(startx, starty, endx, endy)
+        # for edge in self.voronoiEdges:
+        #     startx = edge.start_point.x
+        #     starty = edge.start_point.y
+        #     endx = edge.end_point.x
+        #     endy = edge.end_point.y
+        #     self.canvas.create_line(startx, starty, endx, endy)
 
     def insert(self, bstRoot, site, ordinate, inserted = 0):
         # If the tree is empty, return a new node
@@ -261,7 +262,7 @@ class DrawingApp:
 
         return Point(cx, cy), radius
 
-    def check_circle_event(self, arc):
+    def check_circle_event(self, arc, sweepLine):
         belowArc = self.find_below_arc(self.rootArc, arc)
         aboveArc = self.find_above_arc(self.rootArc, arc)
 
@@ -275,13 +276,14 @@ class DrawingApp:
         circle_center, circle_radius = self.calculate_circle(belowArc.site, arc.site, aboveArc.site)
         if (circle_center is None) :
             return
-        
-        event = CircleEvent(circle_center, circle_radius, arc, belowArc, aboveArc)
-        self.circleEvent.put(event)
+        if(circle_center.x + circle_radius > sweepLine):
+            event = CircleEvent(circle_center, circle_radius, arc, belowArc, aboveArc)
+            self.circleEvent.put(event)
 
 
     def process_point(self):
         site = self.pointEvent.pop()
+        self.seenPoints.append(site)
         # self.draw_sweep_line(site.x)
         # self.master.after(2000)  # Pause for 500 milliseconds
         # self.master.update()    # Force an update of the Tkinter display
@@ -296,23 +298,28 @@ class DrawingApp:
                 belowArc = self.find_below_arc(self.rootArc, newArc)
                 aboveArc = self.find_above_arc(self.rootArc, newArc)
                 
-                self.check_circle_event(newArc)
+                self.check_circle_event(newArc, site.x)
                 if belowArc is not None:
-                    self.check_circle_event(belowArc)
+                    self.check_circle_event(belowArc, site.x)
                 if aboveArc is not None:
-                    self.check_circle_event(aboveArc)
+                    self.check_circle_event(aboveArc, site.x)
     
     def detect_fake_vertices(self, root, center, radius, fake = []):
-        if root is None:
-            return fake
-        fake = self.detect_fake_vertices(root.left, center, radius, fake)
-
-        if round(center.dist_to_point(root.site), 3) < round(radius, 3):
-            fake.append(root)
-        # if root.site.x < center.x + radius:
-        #     fake.append(root)
-        fake = self.detect_fake_vertices(root.right, center, radius, fake)
+        for point in self.seenPoints:
+            if round(center.dist_to_point(point), 3) < round(radius, 3):
+                fake.append(root)
         return fake
+        # if root is None:
+        #     return fake
+        # fake = self.detect_fake_vertices(root.left, center, radius, fake)
+
+        # print("for arc : ", root.site.x ,"distance: ", round(center.dist_to_point(root.site), 3) , " , radius ", round(radius, 3))
+
+        # if round(center.dist_to_point(root.site), 3) < round(radius, 3):
+        #     fake.append(root)
+        
+        # fake = self.detect_fake_vertices(root.right, center, radius, fake)
+        # return fake
 
     def process_event(self):
         cevent = self.circleEvent.pop()
@@ -330,14 +337,14 @@ class DrawingApp:
 
             self.delete_arc(self.rootArc, cevent.arc)
             self.bstLength = self.bstLength -1
-            self.check_circle_event(cevent.belowArc)
-            self.check_circle_event(cevent.aboveArc)
+            self.check_circle_event(cevent.belowArc, cevent.eventPoint.x)
+            self.check_circle_event(cevent.aboveArc, cevent.eventPoint.x)
         else:
             self.delete_arc(self.rootArc, cevent.arc)
             self.bstLength = self.bstLength -1
 
-            self.check_circle_event(cevent.belowArc)
-            self.check_circle_event(cevent.aboveArc)
+            self.check_circle_event(cevent.belowArc, cevent.eventPoint.x)
+            self.check_circle_event(cevent.aboveArc, cevent.eventPoint.x)
 
 
 
