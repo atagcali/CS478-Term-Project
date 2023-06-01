@@ -1,20 +1,17 @@
 import math as m
 import tkinter as tk
 import random as r
-#from scipy.spatial import Delaunay, Voronoi, voronoi_plot_2d
+
 
 def find_supertriangle(P):
-    # Find the minimum and maximum x and y coordinates in the point set
     min_x = min(p[0] for p in P)
     max_x = max(p[0] for p in P)
     min_y = min(p[1] for p in P)
     max_y = max(p[1] for p in P)
 
-    # Calculate the width and height of the bounding triangle
     width = max_x - min_x
     height = max_y - min_y
 
-    # Define the vertices of the bounding triangle
     v1 = (min_x - width, min_y - height)
     v2 = (max_x + width, min_y - height)
     v3 = ((min_x + max_x) / 2, max_y + height)
@@ -34,6 +31,7 @@ def is_in_triangle(p, tri):
     denom = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3)
     if denom == 0:
         return False
+
     b1 = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / denom
     b2 = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / denom
     b3 = 1 - b1 - b2
@@ -114,21 +112,37 @@ def add_point(p, tris):
             for i in range(3):
                 legalize_edge(p, new_tris[i], tris)
 
-        else: # If p in on an edge (Visually, doesn't cause a problem
-            #TODO
+        else: # If p in on an edge (This doesn't cause a problem visually)
             pass
 
 
-def delaunay(points):
+def delaunay(points, root, canvas):
     a, b, c = find_supertriangle(points)
 
     triangulation = [[a,b,c]]
 
     for p in points:
-        add_point(p, triangulation)
+        canvas.delete("all")
 
-    # Return all triangles except the ones that share an edge with the supertriangle
-    return [t for t in triangulation if not (a in t or b in t or c in t)]
+        add_point(p, triangulation)
+        result = [t for t in triangulation if not (a in t or b in t or c in t)]
+
+        for triangle in result:
+            x1, y1 = triangle[0]
+            x2, y2 = triangle[1]
+            x3, y3 = triangle[2]
+
+            canvas.create_polygon(x1, y1, x2, y2, x3, y3, outline='blue', fill='', tags="delaunay")
+
+        if delay:
+            root.update()
+            root.after(delay)
+
+    if not delay:
+        root.update()
+    root.after(3000)
+
+    return result
 
 
 def triangle_ccc(tri):
@@ -143,35 +157,9 @@ def triangle_ccc(tri):
     return [ux, uy]
 
 
-def draw_delaunay(triangles):
-    root = tk.Tk()
-    canvas = tk.Canvas(root, width=1920, height=1080)
-    canvas.pack()
-
-    for triangle in triangles:
-        x1, y1 = triangle[0]
-        x2, y2 = triangle[1]
-        x3, y3 = triangle[2]
-
-        canvas.create_polygon(x1, y1, x2, y2, x3, y3, outline='blue', fill='')
-
-    root.mainloop()
-
-
-"""def circ_intersect(tri1, tri2):
-    cc1, cr1 = find_cc(tri1)
-    cc2, cr2 = find_cc(tri2)
-
-    dx = cc2[0] - cc1[0]
-    dy = cc2[1] - cc1[1]
-    d = m.sqrt(dx**2 + dy**2)
-
-    return d < cr1 + cr2"""
-
-
 def common_edge(tri1, tri2):
-    e1 = sorted([sorted([tri1[0], tri1[1]]), sorted([tri1[1], tri1[2]]), sorted([tri1[2], tri1[0]])])
-    e2 = sorted([sorted([tri2[0], tri2[1]]), sorted([tri2[1], tri2[2]]), sorted([tri2[2], tri2[0]])])
+    e1 = [sorted([tri1[0], tri1[1]]), sorted([tri1[1], tri1[2]]), sorted([tri1[2], tri1[0]])]
+    e2 = [sorted([tri2[0], tri2[1]]), sorted([tri2[1], tri2[2]]), sorted([tri2[2], tri2[0]])]
 
     for a in e1:
         for b in e2:
@@ -182,25 +170,20 @@ def common_edge(tri1, tri2):
 
 
 def p_line(S, B):
-    width = 1920
-    height = 1080
+    width, height = screen_size
 
-    # Compute the slope of line B
     slope_B = (B[1][1] - B[0][1]) / (B[1][0] - B[0][0])
 
-    # Compute the slope of the perpendicular line
     if slope_B == 0:
-        slope = float('inf')  # Vertical line
+        slope = float('inf')
     else:
         slope = -1 / slope_B
 
-    # Determine the endpoint of the perpendicular line on the bounding box
     if slope == float('inf'):
-        # Perpendicular line is vertical
         endpoint = (S[0], height)
     else:
-        x = width  # x-coordinate at the right side of the bounding box
-        y = S[1] + (x - S[0]) * slope  # Compute y-coordinate using slope
+        x = width
+        y = S[1] + (x - S[0]) * slope
         if y > height:
             y = height
             x = S[0] + (y - S[1]) / slope
@@ -209,78 +192,111 @@ def p_line(S, B):
     return S, endpoint
 
 
-def voronoi(tris):
+def slope(p1, p2):
+    x1, y1 = p1
+    x2, y2 = p2
+
+    if y1 == y2:
+        return float("inf")
+
+    return (y1 - y2) / (x1 - x2)
+
+
+def midpoint(edge):
+    p1, p2 = edge
+
+    return [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]
+
+
+def include(list1, list2):
+    return True if all([element in list2 for element in list1]) else False
+
+
+def voronoi(tris, root, canvas):
     tri_ccs = [triangle_ccc(tri) for tri in tris]
 
     cells = []
     lines = []
 
     for i, tri in enumerate(tris):
-        neighbors = [j for j, o_tri in enumerate(tris) if i != j and common_edge(tri, o_tri)]
+        neighbors = [(j, o_tri) for j, o_tri in enumerate(tris) if i != j and common_edge(tri, o_tri)]
         cells.append({"center": tri_ccs[i], "neighbors": neighbors})
 
-    for cell in cells:
-        for o_cell in cell["neighbors"]:
-            lines.append([cell["center"], cells[o_cell]["center"]])
+    for i, cell in enumerate(cells):
+        cc = cell["center"]
+        for o_cell, _ in cell["neighbors"]:
+            n_line = [cc, cells[o_cell]["center"]]
+            lines.append(n_line)
+
+            canvas.create_line(n_line[0][0], n_line[0][1], n_line[1][0], n_line[1][1], fill="green", tags="voronoi")
+            if delay:
+                root.update()
+                root.after(delay//2)
 
         if len(cell["neighbors"]) < 3:
-            pass # TODO: Triangle with less than 3 neighbors
+            # WIP
+            """this_tri = tris[i]
+
+            if len(cell["neighbors"]) == 2:
+                points = []
+                
+            lines.append(ray)
+            canvas.create_line(ray[0][0], ray[0][1], ray[1][0], ray[1][1], fill="green", tags="voronoi")
+            root.update()
+            root.after(speed)"""
+
+    if not delay:
+        root.update()
+        root.after(3000)
 
     return lines
 
-def draw_points(points,canvas, root):
-    for i, (x, y) in enumerate(points):
-        canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill='black')
-        canvas.create_text(x, y - 15, text=str(i), fill='black')
 
-    root.mainloop()
-
-
-
-def draw_both(triangles, lines, points):
+def draw(triangles=None, lines=None):
     root = tk.Tk()
-    canvas = tk.Canvas(root, width=1920, height=1080, background="white")
+    canvas = tk.Canvas(root, width=screen_size[0], height=screen_size[1], background="white")
     canvas.pack()
 
-    for triangle in triangles:
-        x1, y1 = triangle[0]
-        x2, y2 = triangle[1]
-        x3, y3 = triangle[2]
+    if triangles:
+        for triangle in triangles:
+            x1, y1 = triangle[0]
+            x2, y2 = triangle[1]
+            x3, y3 = triangle[2]
 
-        canvas.create_polygon(x1, y1, x2, y2, x3, y3, outline='blue', fill='')
+            canvas.create_polygon(x1, y1, x2, y2, x3, y3, outline='blue', fill='')
 
-    for line in lines:
-        start_x, start_y = line[0]
-        end_x, end_y = line[1]
+    if lines:
+        for line in lines:
+            start_x, start_y = line[0]
+            end_x, end_y = line[1]
 
-        canvas.create_line(start_x, start_y, end_x, end_y, fill='green')
-
-    draw_points(points,canvas,root)
-    root.mainloop()
-
-
-def draw_voronoi(lines):
-    root = tk.Tk()
-    canvas = tk.Canvas(root, width=1920, height=1080, background="white")
-    canvas.pack()
-
-    for line in lines:
-        start_x, start_y = line[0]
-        end_x, end_y = line[1]
-
-        canvas.create_line(start_x, start_y, end_x, end_y, fill='green')
+            canvas.create_line(start_x, start_y, end_x, end_y, fill='green')
 
     root.mainloop()
 
+
+screen_size = (tk.Tk().winfo_screenwidth(), tk.Tk().winfo_screenheight())
+delay = int(input("Delay(ms) between steps (0 for instant): "))
+point_count = int(input("Number of points: "))
+
+root = tk.Tk()
+root.title("Randomized Incremental Algorithm")
+canvas = tk.Canvas(root, width=screen_size[0], height=screen_size[1])
+canvas.pack()
 
 random_points = [
-    [r.randint(50,1870), r.randint(50,980)]
-    for _ in range(10)
+    [r.randint(30,screen_size[0]-30), r.randint(30,screen_size[1]-100)]
+    for _ in range(point_count)
 ]
 
+# Calculates Delaunay triangulation and draws to canvas
+triangulation = delaunay(random_points, root, canvas)
 
-triangulation = delaunay(random_points)
-#draw_delaunay(triangulation)
-voronoi = voronoi(triangulation)
-draw_both(triangulation, voronoi,random_points)
-#draw_voronoi(voronoi)
+# Calculates Voronoi diagram and draws to canvas
+voronoi = voronoi(triangulation, root, canvas)
+
+canvas.delete("delaunay")
+
+root.mainloop()
+
+# draw(triangles=triangulation), draw(lines=voronoi) or draw(triangles=triangulation, lines=voronoi) are alternatives for instant drawing
