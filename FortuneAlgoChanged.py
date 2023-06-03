@@ -3,8 +3,7 @@ import heapq
 import itertools
 import math
 import random
-
-
+import time
 
 class Point:
     def __init__(self, x, y):
@@ -48,47 +47,33 @@ class Segment:
     def finish(self, p):
         if self.done: return
         self.end = p
-        self.done = True        
+        self.done = True  
 
 class PriorityQueue:
     def __init__(self):
         self.pq = []
-        self.entry_finder = {}
-        self.counter = itertools.count()
+        self._index = 0
+
+    def is_empty(self):
+        return not self.pq
 
     def push(self, item):
-        # check for duplicate
-        if item in self.entry_finder: return
-        count = next(self.counter)
-        # use x-coordinate as a primary key (heapq in python is min-heap)
-        entry = [item.x, count, item]
-        self.entry_finder[item] = entry
-        heapq.heappush(self.pq, entry)
-
-    def remove_entry(self, item):
-        entry = self.entry_finder.pop(item)
-        entry[-1] = 'Removed'
+        heapq.heappush(self.pq, (item.x, self._index, item))
+        self._index += 1
 
     def pop(self):
-        while self.pq:
-            priority, count, item = heapq.heappop(self.pq)
-            if item != 'Removed':
-                del self.entry_finder[item]
-                return item
-        raise KeyError('pop from an empty priority queue')
+        if self.is_empty():
+            return None
+        return heapq.heappop(self.pq)[-1]
 
     def top(self):
-        while self.pq:
-            priority, count, item = heapq.heappop(self.pq)
-            if item != 'Removed':
-                del self.entry_finder[item]
-                self.push(item)
-                return item
-        raise KeyError('top from an empty priority queue')
-
+        if self.is_empty():
+            return None
+        return self.pq[0][-1]   
+    
     def empty(self):
         return not self.pq
-            
+
 class DrawingApp:
     def __init__(self, master):
         self.master = master
@@ -268,21 +253,12 @@ class DrawingApp:
         if ((point1.x - center.x)*(point2.y - center.y) - (point2.x - center.x)*(point1.y - center.y)) > 0: 
             return
 
-        # Joseph O'Rourke, Computational Geometry in C (2nd ed.) p.189
-        A = point1.x - center.x
-        B = point1.y - center.y
-        C = point2.x - center.x
-        D = point2.y - center.y
-        E = A*(center.x + point1.x) + B*(center.y + point1.y)
-        F = C*(center.x + point2.x) + D*(center.y + point2.y)
-        G = 2*(A*(point2.y - point1.y) - B*(point2.x - point1.x))
+        if (2*((point1.x - center.x)*(point2.y - point1.y) - (point1.y - center.y)*(point2.x - point1.x)) == 0): return # Points are co-linear
 
-        if (G == 0): return # Points are co-linear
-
-        circle_center_x = 1.0 * (D*E - B*F) / G
-        circle_center_y = 1.0 * (A*F - C*E) / G
-
-        max_x = circle_center_x + math.sqrt((center.x - circle_center_x)**2 + (center.y - circle_center_y)**2)
+        circle_center_x = 1.0 * ((point2.y - center.y)*((point1.x - center.x)*(center.x + point1.x) + (point1.y - center.y)*(center.y + point1.y)) - (point1.y - center.y)*((point2.x - center.x)*(center.x + point2.x) + (point2.y - center.y)*(center.y + point2.y))) / (2*((point1.x - center.x)*(point2.y - point1.y) - (point1.y - center.y)*(point2.x - point1.x)))
+        circle_center_y = 1.0 * ((point1.x - center.x)*((point2.x - center.x)*(center.x + point2.x) + (point2.y - center.y)*(center.y + point2.y)) - (point2.x - center.x)*((point1.x - center.x)*(center.x + point1.x) + (point1.y - center.y)*(center.y + point1.y))) / (2*((point1.x - center.x)*(point2.y - point1.y) - (point1.y - center.y)*(point2.x - point1.x)))
+        radius = math.sqrt((center.x - circle_center_x)**2 + (center.y - circle_center_y)**2)
+        max_x = circle_center_x + radius
         circle_center = Point(circle_center_x, circle_center_y)
 
         if max_x > self.x0:
@@ -317,9 +293,12 @@ class DrawingApp:
     def check_parabola_intersection(self, new_point, parabola_arc):
         if (parabola_arc is None) or (parabola_arc.p.x == new_point.x): 
             return None
-
-        intersection_a_y = self.calculate_intersection(parabola_arc.pprev.p, parabola_arc.p, 1.0*new_point.x).y if parabola_arc.pprev is not None else 0.0
-        intersection_b_y = self.calculate_intersection(parabola_arc.p, parabola_arc.pnext.p, 1.0*new_point.x).y if parabola_arc.pnext is not None else 0.0
+        intersection_a_y = 0.0
+        intersection_b_y = 0.0
+        if parabola_arc.pprev is not None:
+            intersection_a_y = self.calculate_intersection(parabola_arc.pprev.p, parabola_arc.p, 1.0*new_point.x).y
+        if parabola_arc.pnext is not None:
+            intersection_b_y = self.calculate_intersection(parabola_arc.p, parabola_arc.pnext.p, 1.0*new_point.x).y 
 
         if (((parabola_arc.pprev is None) or (intersection_a_y <= new_point.y)) and ((parabola_arc.pnext is None) or (new_point.y <= intersection_b_y))):
             point_y = new_point.y
@@ -362,6 +341,8 @@ class DrawingApp:
         self.y0 = self.y0 - 1000
         self.y1 = self.y1 + 1000
 
+        start = time.time()*1000.0
+
         while not self.events.empty():
             event = self.events.pop()
             if(isinstance(event, Point)):
@@ -372,6 +353,10 @@ class DrawingApp:
         self.finalize_edges()
 
         self.drawOutput()
+
+        end = time.time()*1000.0
+
+        print(end-start)
         
 
 
