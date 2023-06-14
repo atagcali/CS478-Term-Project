@@ -5,31 +5,34 @@ import math
 import random
 import time
 
+
 class Point:
     def __init__(self, x, y):
-       self.x = x
-       self.y = y
-    
-    def dist_to_point(self, other_p = None):
+        self.x = x
+        self.y = y
+
+    def dist_to_point(self, other_p=None):
         if not other_p:
             other_p = Point()
 
-        return ((self.x-other_p.x)**2 + (self.y-other_p.y)**2)**0.5
-    
-    def midpoint_to(self, other_p = None):
+        return ((self.x - other_p.x) ** 2 + (self.y - other_p.y) ** 2) ** 0.5
+
+    def midpoint_to(self, other_p=None):
         if not other_p:
             other_p = Point()
 
         return Point((self.x + other_p.x) / 2, (self.y + other_p.y) / 2)
 
-class Event:    
+
+class Event:
     def __init__(self, x, p, a):
         self.x = x
         self.p = p
         self.a = a
         self.valid = True
 
-class Arc:    
+
+class Arc:
     def __init__(self, p, a=None, b=None):
         self.p = p
         self.pprev = a
@@ -37,6 +40,7 @@ class Arc:
         self.e = None
         self.s0 = None
         self.s1 = None
+
 
 class Segment:
     def __init__(self, p):
@@ -47,7 +51,8 @@ class Segment:
     def finish(self, p):
         if self.done: return
         self.end = p
-        self.done = True  
+        self.done = True
+
 
 class PriorityQueue:
     def __init__(self):
@@ -69,19 +74,20 @@ class PriorityQueue:
     def top(self):
         if self.is_empty():
             return None
-        return self.pq[0][-1]   
-    
+        return self.pq[0][-1]
+
     def empty(self):
         return not self.pq
+
 
 class DrawingApp:
     def __init__(self, master):
         self.master = master
         self.master.title("Drawing App")
-        
+
         self.canvas = tk.Canvas(self.master, width=1600, height=900, bg="white")
         self.canvas.pack()
-        
+
         self.points = []
         self.canvas.bind("<Button-1>", self.add_point)
         self.canvas.bind("<Button-2>", self.clear_canvas)
@@ -96,7 +102,7 @@ class DrawingApp:
         self.add_points_button = tk.Button(self.master, text="Add Random Points", command=self.add_random_points)
         self.add_points_button.grid(row=0, column=1)
 
-        #initialize boundary box
+        # initialize boundary box
         self.x0 = 0.0
         self.x1 = 0.0
         self.y0 = 0.0
@@ -104,10 +110,10 @@ class DrawingApp:
 
         self.output = []
         self.vertices = []
-        self.arc = None  
+        self.arc = None
 
         self.events = PriorityQueue()
-    
+
     def add_random_points(self):
         try:
             num_points = int(self.point_num_entry.get())
@@ -118,16 +124,16 @@ class DrawingApp:
         for _ in range(num_points):
             x, y = random.randint(0, 1600), random.randint(0, 900)
             self.points.append((x, y))
-            self.canvas.create_oval(x-3, y-3, x+3, y+3, fill="black")
-        
+            self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="black")
+
         self.voronoi()
 
     def add_point(self, event):
         x, y = event.x, event.y
         print('x = ', x, ' ,  y = ', y)
         self.points.append((x, y))
-        self.canvas.create_oval(x-3, y-3, x+3, y+3, fill="black")
-    
+        self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="black")
+
     def clear_canvas(self, event=None):
         self.points = []
         self.x0 = 0.0
@@ -140,7 +146,7 @@ class DrawingApp:
         self.pointEvents = PriorityQueue()
         self.event = PriorityQueue()
         self.canvas.delete("all")
-    
+
     def runVoronoi(self, event):
         self.voronoi()
 
@@ -148,9 +154,9 @@ class DrawingApp:
         for o in self.output:
             p0 = o.start
             p1 = o.end
-            if(p0 is not None) and (p1 is not None):
-                self.canvas.create_line(p0.x, p0.y, p1.x, p1.y, fill='blue') 
-        
+            if (p0 is not None) and (p1 is not None):
+                self.canvas.create_line(p0.x, p0.y, p1.x, p1.y, fill='blue')
+
         for vertex in self.vertices:
             x = vertex.x
             y = vertex.y
@@ -167,7 +173,7 @@ class DrawingApp:
                 if intersection_point is not None:
                     next_intersection_point = self.check_parabola_intersection(site_event, current_arc.pnext)
 
-                    if (current_arc.pnext is not None) and (next_intersection_point is None): 
+                    if (current_arc.pnext is not None) and (next_intersection_point is None):
                         current_arc.pnext.pprev = Arc(current_arc.p, current_arc, current_arc.pnext)
                         current_arc.pnext = current_arc.pnext.pprev
                     else:
@@ -177,7 +183,7 @@ class DrawingApp:
                     current_arc.pnext.pprev = Arc(site_event, current_arc, current_arc.pnext)
                     current_arc.pnext = current_arc.pnext.pprev
 
-                    new_arc = current_arc.pnext 
+                    new_arc = current_arc.pnext
 
                     new_segment = Segment(intersection_point)
                     self.output.append(new_segment)
@@ -211,7 +217,6 @@ class DrawingApp:
             current_arc.s1 = current_arc.pnext.s0 = new_segment
             self.output.append(new_segment)
 
-
     def process_circle_event(self, circle_event):
         if circle_event.valid:
             # Start new Voronoi edge
@@ -229,35 +234,45 @@ class DrawingApp:
                 associated_arc.pnext.s0 = voronoi_edge
 
             # Finalize the Voronoi edges before and after associated arc
-            if associated_arc.s0 is not None: 
+            if associated_arc.s0 is not None:
                 associated_arc.s0.finish(circle_event.p)
-            if associated_arc.s1 is not None: 
+            if associated_arc.s1 is not None:
                 associated_arc.s1.finish(circle_event.p)
 
             # Recheck circle events on either side of current point
-            if associated_arc.pprev is not None: 
+            if associated_arc.pprev is not None:
                 self.check_circle_event(associated_arc.pprev)
-            if associated_arc.pnext is not None: 
-                self.check_circle_event(associated_arc.pnext)   
-
+            if associated_arc.pnext is not None:
+                self.check_circle_event(associated_arc.pnext)
 
     def check_circle_event(self, parabola_arc):
         if (parabola_arc.e is not None) and (parabola_arc.e.x != self.x0):
             parabola_arc.e.valid = False
         parabola_arc.e = None
 
-        if (parabola_arc.pprev is None) or (parabola_arc.pnext is None): 
+        if (parabola_arc.pprev is None) or (parabola_arc.pnext is None):
             return
 
         center, point1, point2 = parabola_arc.pprev.p, parabola_arc.p, parabola_arc.pnext.p
-        if ((point1.x - center.x)*(point2.y - center.y) - (point2.x - center.x)*(point1.y - center.y)) > 0: 
+        if ((point1.x - center.x) * (point2.y - center.y) - (point2.x - center.x) * (point1.y - center.y)) > 0:
             return
 
-        if (2*((point1.x - center.x)*(point2.y - point1.y) - (point1.y - center.y)*(point2.x - point1.x)) == 0): return # Points are co-linear
+        if (2 * ((point1.x - center.x) * (point2.y - point1.y) - (point1.y - center.y) * (
+                point2.x - point1.x)) == 0): return  # Points are co-linear
 
-        circle_center_x = 1.0 * ((point2.y - center.y)*((point1.x - center.x)*(center.x + point1.x) + (point1.y - center.y)*(center.y + point1.y)) - (point1.y - center.y)*((point2.x - center.x)*(center.x + point2.x) + (point2.y - center.y)*(center.y + point2.y))) / (2*((point1.x - center.x)*(point2.y - point1.y) - (point1.y - center.y)*(point2.x - point1.x)))
-        circle_center_y = 1.0 * ((point1.x - center.x)*((point2.x - center.x)*(center.x + point2.x) + (point2.y - center.y)*(center.y + point2.y)) - (point2.x - center.x)*((point1.x - center.x)*(center.x + point1.x) + (point1.y - center.y)*(center.y + point1.y))) / (2*((point1.x - center.x)*(point2.y - point1.y) - (point1.y - center.y)*(point2.x - point1.x)))
-        radius = math.sqrt((center.x - circle_center_x)**2 + (center.y - circle_center_y)**2)
+        circle_center_x = 1.0 * ((point2.y - center.y) * (
+                    (point1.x - center.x) * (center.x + point1.x) + (point1.y - center.y) * (center.y + point1.y)) - (
+                                             point1.y - center.y) * (
+                                             (point2.x - center.x) * (center.x + point2.x) + (point2.y - center.y) * (
+                                                 center.y + point2.y))) / (2 * (
+                    (point1.x - center.x) * (point2.y - point1.y) - (point1.y - center.y) * (point2.x - point1.x)))
+        circle_center_y = 1.0 * ((point1.x - center.x) * (
+                    (point2.x - center.x) * (center.x + point2.x) + (point2.y - center.y) * (center.y + point2.y)) - (
+                                             point2.x - center.x) * (
+                                             (point1.x - center.x) * (center.x + point1.x) + (point1.y - center.y) * (
+                                                 center.y + point1.y))) / (2 * (
+                    (point1.x - center.x) * (point2.y - point1.y) - (point1.y - center.y) * (point2.x - point1.x)))
+        radius = math.sqrt((center.x - circle_center_x) ** 2 + (center.y - circle_center_y) ** 2)
         max_x = circle_center_x + radius
         circle_center = Point(circle_center_x, circle_center_y)
 
@@ -265,8 +280,6 @@ class DrawingApp:
             parabola_arc.e = Event(max_x, circle_center, parabola_arc)
             self.events.push(parabola_arc.e)
 
-
-        
     def calculate_intersection(self, point1, point2, directrix):
         parabola_focus = point1
         if (point1.x == point2.x):
@@ -280,34 +293,35 @@ class DrawingApp:
             z1 = 2.0 * (point1.x - directrix)
             z2 = 2.0 * (point2.x - directrix)
 
-            coef_a = 1.0/z1 - 1.0/z2
-            coef_b = -2.0 * (point1.y/z1 - point2.y/z2)
-            coef_c = 1.0 * (point1.y**2 + point1.x**2 - directrix**2) / z1 - 1.0 * (point2.y**2 + point2.x**2 - directrix**2) / z2
+            coef_a = 1.0 / z1 - 1.0 / z2
+            coef_b = -2.0 * (point1.y / z1 - point2.y / z2)
+            coef_c = 1.0 * (point1.y ** 2 + point1.x ** 2 - directrix ** 2) / z1 - 1.0 * (
+                        point2.y ** 2 + point2.x ** 2 - directrix ** 2) / z2
 
-            intersection_y = 1.0 * (-coef_b-math.sqrt(coef_b*coef_b - 4*coef_a*coef_c)) / (2*coef_a)
-        
-        intersection_x = 1.0 * (parabola_focus.x**2 + (parabola_focus.y-intersection_y)**2 - directrix**2) / (2*parabola_focus.x-2*directrix)
+            intersection_y = 1.0 * (-coef_b - math.sqrt(coef_b * coef_b - 4 * coef_a * coef_c)) / (2 * coef_a)
+
+        intersection_x = 1.0 * (parabola_focus.x ** 2 + (parabola_focus.y - intersection_y) ** 2 - directrix ** 2) / (
+                    2 * parabola_focus.x - 2 * directrix)
         return Point(intersection_x, intersection_y)
 
-
     def check_parabola_intersection(self, new_point, parabola_arc):
-        if (parabola_arc is None) or (parabola_arc.p.x == new_point.x): 
+        if (parabola_arc is None) or (parabola_arc.p.x == new_point.x):
             return None
         intersection_a_y = 0.0
         intersection_b_y = 0.0
         if parabola_arc.pprev is not None:
-            intersection_a_y = self.calculate_intersection(parabola_arc.pprev.p, parabola_arc.p, 1.0*new_point.x).y
+            intersection_a_y = self.calculate_intersection(parabola_arc.pprev.p, parabola_arc.p, 1.0 * new_point.x).y
         if parabola_arc.pnext is not None:
-            intersection_b_y = self.calculate_intersection(parabola_arc.p, parabola_arc.pnext.p, 1.0*new_point.x).y 
+            intersection_b_y = self.calculate_intersection(parabola_arc.p, parabola_arc.pnext.p, 1.0 * new_point.x).y
 
-        if (((parabola_arc.pprev is None) or (intersection_a_y <= new_point.y)) and ((parabola_arc.pnext is None) or (new_point.y <= intersection_b_y))):
+        if (((parabola_arc.pprev is None) or (intersection_a_y <= new_point.y)) and (
+                (parabola_arc.pnext is None) or (new_point.y <= intersection_b_y))):
             point_y = new_point.y
-            point_x = 1.0 * ((parabola_arc.p.x)**2 + (parabola_arc.p.y-point_y)**2 - new_point.x**2) / (2*parabola_arc.p.x - 2*new_point.x)
+            point_x = 1.0 * ((parabola_arc.p.x) ** 2 + (parabola_arc.p.y - point_y) ** 2 - new_point.x ** 2) / (
+                        2 * parabola_arc.p.x - 2 * new_point.x)
             return Point(point_x, point_y)
-        
+
         return None
-
-
 
     def finalize_edges(self):
         max_distance = self.x1 + (self.x1 - self.x0) + (self.y1 - self.y0)
@@ -315,10 +329,9 @@ class DrawingApp:
 
         while current_arc.pnext is not None:
             if current_arc.s1 is not None:
-                intersection_point = self.calculate_intersection(current_arc.p, current_arc.pnext.p, max_distance*2.0)
+                intersection_point = self.calculate_intersection(current_arc.p, current_arc.pnext.p, max_distance * 2.0)
                 current_arc.s1.finish(intersection_point)
             current_arc = current_arc.pnext
-
 
     def voronoi(self):
         # insert points to site event
@@ -326,13 +339,13 @@ class DrawingApp:
             point = Point(pts[0], pts[1])
             self.events.push(point)
             # keep track of bounding box size
-            if point.x < self.x0: 
+            if point.x < self.x0:
                 self.x0 = point.x
-            if point.y < self.y0: 
+            if point.y < self.y0:
                 self.y0 = point.y
             if point.x > self.x1:
                 self.x1 = point.x
-            if point.y > self.y1: 
+            if point.y > self.y1:
                 self.y1 = point.y
 
         # add margins to the bounding box
@@ -341,11 +354,11 @@ class DrawingApp:
         self.y0 = self.y0 - 1000
         self.y1 = self.y1 + 1000
 
-        start = time.time()*1000.0
+        start = time.time() * 1000.0
 
         while not self.events.empty():
             event = self.events.pop()
-            if(isinstance(event, Point)):
+            if (isinstance(event, Point)):
                 self.process_point_event(event)
             else:
                 self.process_circle_event(event)
@@ -354,10 +367,9 @@ class DrawingApp:
 
         self.drawOutput()
 
-        end = time.time()*1000.0
+        end = time.time() * 1000.0
 
-        print(end-start)
-        
+        print(end - start)
 
 
 if __name__ == "__main__":

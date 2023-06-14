@@ -1,8 +1,7 @@
 import math as m
 import random as r
 import tkinter as tk
-import heapq
-
+import time as t
 
 def point_orient(a, b, c):
     return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
@@ -42,7 +41,7 @@ def poly_point_intersect(poly, point):
     return edges
 
 
-def def_triangulation(P):
+def def_triangulation(P, canvas, root):
     sortedP = sorted(P, key=lambda p: (p[0], p[1]))
 
     edges = [sortedP[:2], sortedP[1:3], [sortedP[0], sortedP[2]]]
@@ -59,43 +58,45 @@ def def_triangulation(P):
             tri.sort()
             tris.append(tri)
 
+            p1, p2, p3 = tri
+            canvas.create_polygon(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], outline="black", fill='#F0F0F0')
+            a, b = (p1[0] + p2[0] + p3[0]) / 3, (p1[1] + p2[1] + p3[1]) / 3
+            canvas.create_oval(a - 3, b - 3, a + 3, b + 3, fill="black")
+
+            if delay:
+                root.update()
+                root.after(delay)
+
+    if not delay:
+        root.update()
+        root.after(3000)
+
     return edges, tris
 
 
-def draw_points(points):
-    root = tk.Tk()
-    canvas = tk.Canvas(root, width=1600, height=900)
-    canvas.pack()
-
+def draw_points(points, canvas):
     for i, (x, y) in enumerate(points):
         canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill='black')
-        canvas.create_text(x, y - 15, text=str(i), fill='black')
-
-    root.mainloop()
 
 
-def draw_lines(lines):
-    root = tk.Tk()
-    canvas = tk.Canvas(root, width=1600, height=900)
-    canvas.pack()
-
+def draw_lines(lines, canvas, root):
     for p1, p2 in lines:
         canvas.create_line(p1[0], p1[1], p2[0], p2[1], fill='black')
+        if delay:
+            root.update()
+            root.after(delay // 2)
 
-    root.mainloop()
+    if not delay:
+        root.update()
+        root.after(3000)
 
 
-def draw_tris(tris):
-    root = tk.Tk()
-    canvas = tk.Canvas(root, width=1600, height=900)
-    canvas.pack()
+def draw_tris(tris, canvas):
 
     for p1, p2, p3 in tris[::-1]:
         canvas.create_polygon(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1], outline="black", fill='#F0F0F0')
         a, b = (p1[0] + p2[0] + p3[0]) / 3, (p1[1] + p2[1] + p3[1]) / 3
         canvas.create_oval(a-3, b-3, a+3, b+3, fill="black")
-
-    root.mainloop()
 
 
 def distance(p1, p2):
@@ -126,24 +127,29 @@ def flip_edges(edges, tris):
     def locally_delaunay(edge):
         p1, p2 = edge
 
-        op1, op2 = None, None
+        tri1, tri2 = None, None
         for tri in tris:
             if p1 in tri and p2 in tri:
-                for p in tri:
-                    if p != p1 and p != p2:
-                        if op1:
-                            op2 = p
-                            break
-                        else:
-                            op1 = p
-                if op2:
+                if tri1:
+                    tri2 = tri
                     break
+                else:
+                    tri1 = tri
 
-        if op1 and op2:
-            if point_in_circle(op1, [p1, p2, op2]) or point_in_circle(op2, [p1, p2, op1]):
+        p3, p4 = None, None
+        if tri1:
+            tri1.remove(p1)
+            tri1.remove(p2)
+            p3 = tri1[0]
+        if tri2:
+            tri2.remove(p1)
+            tri2.remove(p2)
+            p4 = tri2[0]
+
+        if p3 and p4:
+            if point_in_circle(p3, [p1, p2, p4]) or point_in_circle(p4, [p1, p2, p3]):
                 return False
-        else:
-            return True
+        return True
 
     def flip(edge):
         p1, p2 = edge
@@ -171,31 +177,50 @@ def flip_edges(edges, tris):
 
             new_edge = [p3, p4]
             edges.append(new_edge)
-            draw_tris(tris)
             return new_edge
 
-    flip_queue = []
+    stack = []
 
     for edge in edges:
         if not locally_delaunay(edge):
-            flip_queue.append((distance(*edge), edge))
+            stack.append(edge)
 
-    while flip_queue:
-        flip_queue.sort()
-        _, next_edge = flip_queue.pop(0)
+    while stack:
+        next_edge = stack.pop()
 
         if next_edge in edges:
             new_edge = flip(next_edge)
 
             if not locally_delaunay(new_edge):
-                flip_queue.append((distance(*new_edge), new_edge))
+                stack.append(new_edge)
 
 
-a = [[r.randint(100, 1500), r.randint(100, 800)] for _ in range(7)]
-draw_points(a)
-edges, tris = def_triangulation(a)
-draw_lines(edges)
-draw_tris(tris)
+delay = int(input("Delay(ms) between steps (0 for instant): "))
+point_count = int(input("Number of points: "))
+
+root = tk.Tk()
+root.title("Flipping Algorithm")
+
+screen_size = (root.winfo_screenwidth(), root.winfo_screenheight())
+
+canvas = tk.Canvas(root, width=screen_size[0], height=screen_size[1])
+canvas.pack()
+
+random_points = [
+    [r.randint(30,screen_size[0]-30), r.randint(30,screen_size[1]-100)]
+    for _ in range(point_count)
+]
+
+draw_points(random_points, canvas)
+
+edges, tris = def_triangulation(random_points, canvas, root)
+
+root.mainloop()
+
+"""
+Commented out since it doesn't finished and doesn't work
+
 flip_edges(edges, tris)
-draw_lines(edges)
 draw_tris(tris)
+"""
+#draw_tris(tris, canvas, root) Old function

@@ -2,7 +2,6 @@ import math as m
 import tkinter as tk
 import random as r
 
-
 def find_supertriangle(P):
     min_x = min(p[0] for p in P)
     max_x = max(p[0] for p in P)
@@ -275,12 +274,14 @@ def draw(triangles=None, lines=None):
     root.mainloop()
 
 
-screen_size = (tk.Tk().winfo_screenwidth(), tk.Tk().winfo_screenheight())
 delay = int(input("Delay(ms) between steps (0 for instant): "))
 point_count = int(input("Number of points: "))
 
 root = tk.Tk()
 root.title("Randomized Incremental Algorithm")
+
+screen_size = (root.winfo_screenwidth(), root.winfo_screenheight())
+
 canvas = tk.Canvas(root, width=screen_size[0], height=screen_size[1])
 canvas.pack()
 
@@ -293,7 +294,7 @@ random_points = [
 triangulation = delaunay(random_points, root, canvas)
 
 # Calculates Voronoi diagram and draws to canvas
-voronoi = voronoi(triangulation, root, canvas)
+voron = voronoi(triangulation, root, canvas)
 
 canvas.delete("delaunay")
 
